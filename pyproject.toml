@@ -6,24 +6,37 @@ authors = [{name = "Developer", email = "developer@example.com"}]
 requires-python = ">=3.11,<3.12"
 readme = "README.md"
 license = {text = "MIT"}
+
 dependencies = [
-    "kiwipiepy>=0.22.2",
-    "loguru>=0.7.3",
+    "langchain>=0.2",
+    "langchain-core>=0.2",
+    "langchain-community>=0.2",
+    "langchain-ollama>=0.1",
+    "langchain-openai>=0.1",
+    "langchain-anthropic>=0.1",
+    "langchain-text-splitters>=1.1",
+    "langgraph>=1.1",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "kiwipiepy>=0.22",
+    "loguru>=0.7",
+    "python-dotenv>=1.0",
+    "diskcache>=5.6",
+    "gtts>=2.4",
 ]
 
-[dependencies]
-langchain = ">=0.2"
-langchain-core = ">=0.2"
-langchain-community = ">=0.2"
-langchain-ollama = ">=0.1"
-langchain-openai = ">=0.1"
-langchain-anthropic = ">=0.1"
-pydantic = ">=2.0"
-kiwipiepy = "*"
-loguru = "*"
-typer = "*"
-python-dotenv = "*"
-diskcache = "*"
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "isort>=5.12",
+    "ruff>=0.1",
+]
+
+tts = [
+    "torch>=2.0",
+]
 
 [project.scripts]
 kozzle = "main:app"
@@ -31,3 +44,16 @@ kozzle = "main:app"
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+select = ["E", "F", "W", "I", "N", "UP", "ANN", "B", "A", "C4", "DTZ", "T20", "RET"]
