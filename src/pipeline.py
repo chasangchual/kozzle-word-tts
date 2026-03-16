@@ -31,9 +31,11 @@ def process_korean_text(
     llm = get_llm(config)
     logger.info(f"Using LLM provider: {config.llm_provider}, model: {config.model}")
 
-    # Process each file
-    all_nouns = set()
-    all_entries = []
+    # Process each file and collect all nouns first
+    all_nouns_from_files = []
+    total_nouns_extracted = 0
+
+    logger.info(f"Found {len(files)} file(s) to process")
 
     for file_path in files:
         try:
@@ -42,37 +44,48 @@ def process_korean_text(
 
             # Extract nouns
             nouns = extract_nouns(content)
-            logger.info(f"Extracted nouns from {file_path}: {nouns}")
+            logger.info(f"Extracted {len(nouns)} nouns from {file_path}: {nouns}")
 
-            # Add to total list (for deduplication)
-            for noun in nouns:
-                if noun not in all_nouns:
-                    all_nouns.add(noun)
-
-                    # Generate sentences using LLM
-                    try:
-                        result = generate_sentences(llm, noun)
-
-                        entry = {
-                            "id": str(uuid.uuid4()),
-                            "word": result["word"],
-                            "sentences": result["sentences"],
-                        }
-                        all_entries.append(entry)
-
-                    except Exception as e:
-                        logger.error(f"Failed to generate sentences for {noun}: {e}")
-                        # Create entry with placeholder if LLM fails
-                        entry = {
-                            "id": str(uuid.uuid4()),
-                            "word": noun,
-                            "sentences": ["", "", ""],
-                        }
-                        all_entries.append(entry)
+            total_nouns_extracted += len(nouns)
+            all_nouns_from_files.extend(nouns)
 
         except Exception as e:
             logger.error(f"Error processing file {file_path}: {e}")
             # Continue processing other files instead of failing completely
+
+    # Remove duplicates by converting to set, then back to list for processing
+    unique_nouns = list(set(all_nouns_from_files))
+    duplicates_removed = total_nouns_extracted - len(unique_nouns)
+
+    logger.info(f"Total nouns extracted: {total_nouns_extracted}")
+    logger.info(f"Unique nouns after deduplication: {len(unique_nouns)}")
+    logger.info(f"Duplicates removed: {duplicates_removed}")
+    logger.info(f"Unique noun list: {unique_nouns}")
+
+    # Generate sentences for each unique noun
+    all_entries = []
+
+    for noun in unique_nouns:
+        try:
+            logger.info(f"Generating sentences for unique noun: {noun}")
+            result = generate_sentences(llm, noun)
+
+            entry = {
+                "id": str(uuid.uuid4()),
+                "word": result["word"],
+                "sentences": result["sentences"],
+            }
+            all_entries.append(entry)
+
+        except Exception as e:
+            logger.error(f"Failed to generate sentences for {noun}: {e}")
+            # Create entry with placeholder if LLM fails
+            entry = {
+                "id": str(uuid.uuid4()),
+                "word": noun,
+                "sentences": ["", "", ""],
+            }
+            all_entries.append(entry)
 
     # Write JSON output
     try:
@@ -88,7 +101,9 @@ def process_korean_text(
             logger.error(f"TTS generation failed: {e}")
             logger.warning("Continuing without TTS audio")
 
-    logger.info(f"Processing completed. Found {len(all_entries)} unique nouns.")
+    logger.info(
+        f"Processing completed. Generated {len(all_entries)} vocabulary entries from {len(unique_nouns)} unique nouns."
+    )
     return all_entries
 
 

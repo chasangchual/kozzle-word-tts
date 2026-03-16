@@ -5,5 +5,4 @@ json_writer
 llm
 noun_extractor
 pipeline
-tests
 tts_generator
