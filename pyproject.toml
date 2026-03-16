@@ -1,0 +1,33 @@
+[project]
+name = "kozzle-word-tts"
+version = "0.1.0"
+description = "Korean vocabulary learning tool for generating example sentences and TTS audio"
+authors = [{name = "Developer", email = "developer@example.com"}]
+requires-python = ">=3.11,<3.12"
+readme = "README.md"
+license = {text = "MIT"}
+dependencies = [
+    "kiwipiepy>=0.22.2",
+    "loguru>=0.7.3",
+]
+
+[dependencies]
+langchain = ">=0.2"
+langchain-core = ">=0.2"
+langchain-community = ">=0.2"
+langchain-ollama = ">=0.1"
+langchain-openai = ">=0.1"
+langchain-anthropic = ">=0.1"
+pydantic = ">=2.0"
+kiwipiepy = "*"
+loguru = "*"
+typer = "*"
+python-dotenv = "*"
+diskcache = "*"
+
+[project.scripts]
+kozzle = "main:app"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

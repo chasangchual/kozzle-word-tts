@@ -1,0 +1,2 @@
+[console_scripts]
+kozzle = main:app

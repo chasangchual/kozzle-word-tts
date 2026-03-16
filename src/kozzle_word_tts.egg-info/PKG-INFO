@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: kozzle-word-tts
+Version: 0.1.0
+Summary: Korean vocabulary learning tool for generating example sentences and TTS audio
+Author-email: Developer <developer@example.com>
+License: MIT
+Requires-Python: <3.12,>=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: kiwipiepy>=0.22.2
+Requires-Dist: loguru>=0.7.3

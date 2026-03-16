@@ -1,0 +1,2 @@
+kiwipiepy>=0.22.2
+loguru>=0.7.3
