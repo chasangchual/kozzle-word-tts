@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 from typing import List, Optional
 from loguru import logger
@@ -73,8 +74,11 @@ class TTSGenerator:
                 )
                 self.model.save(audio, output_path)
             else:
-                # Use gTTS
+                # Use gTTS with rate limiting to avoid 429 errors
                 from gtts import gTTS
+
+                # Add delay to respect rate limits (avoid 429 errors)
+                time.sleep(0.5)  # 500ms delay between requests
 
                 tts = gTTS(text=text, lang="ko")
                 tts.save(output_path)
