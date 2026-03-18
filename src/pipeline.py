@@ -9,7 +9,11 @@ from src.json_writer import write_json_output
 
 
 def process_korean_text(
-    input_path: str, config, generate_tts: bool = True
+    input_path: str,
+    config,
+    generate_tts: bool = True,
+    audio_prompt_path: str = "Korean-sample1.wav",
+    cfg_weight: float = 0.3,
 ) -> List[Dict[str, Any]]:
     """
     Main pipeline for processing Korean text and generating vocabulary content.
@@ -18,6 +22,8 @@ def process_korean_text(
         input_path: Path to input file or directory
         config: Configuration object
         generate_tts: Whether to generate TTS audio (default: True)
+        audio_prompt_path: Path to audio prompt file for voice cloning
+        cfg_weight: Classifier-free guidance weight (0.0-1.0)
 
     Returns:
         List of vocabulary entries with word and sentences
@@ -53,8 +59,10 @@ def process_korean_text(
             logger.error(f"Error processing file {file_path}: {e}")
             # Continue processing other files instead of failing completely
 
-    # Remove duplicates by converting to set, then back to list for processing
-    unique_nouns = list(set(all_nouns_from_files))
+    # Remove duplicates and strip whitespace from all nouns
+    # Strip whitespace and filter out any empty strings that might result
+    cleaned_nouns = [noun.strip() for noun in all_nouns_from_files if noun.strip()]
+    unique_nouns = list(set(cleaned_nouns))
     duplicates_removed = total_nouns_extracted - len(unique_nouns)
 
     logger.info(f"Total nouns extracted: {total_nouns_extracted}")
@@ -96,7 +104,9 @@ def process_korean_text(
     # Generate TTS audio if requested
     if generate_tts:
         try:
-            generate_tts_audio(all_entries)
+            generate_tts_audio(
+                all_entries, audio_prompt_path=audio_prompt_path, cfg_weight=cfg_weight
+            )
         except Exception as e:
             logger.error(f"TTS generation failed: {e}")
             logger.warning("Continuing without TTS audio")
@@ -107,20 +117,30 @@ def process_korean_text(
     return all_entries
 
 
-def generate_tts_audio(entries: List[Dict[str, Any]]) -> None:
+def generate_tts_audio(
+    entries: List[Dict[str, Any]],
+    audio_prompt_path: str = "Korean-sample1.wav",
+    cfg_weight: float = 0.3,
+) -> None:
     """
     Generate TTS audio for all entries.
 
     Args:
         entries: List of vocabulary entries
+        audio_prompt_path: Path to audio prompt file for voice cloning
+        cfg_weight: Classifier-free guidance weight (0.0-1.0)
     """
     try:
         from src.tts_generator import TTSGenerator
 
         logger.info("Starting TTS audio generation...")
+        logger.info(f"Audio prompt: {audio_prompt_path}")
+        logger.info(f"CFG weight: {cfg_weight}")
 
         tts = TTSGenerator(
-            output_dir="output/audio", audio_prompt_path="Korean-sample1.wav"
+            output_dir="output/audio",
+            audio_prompt_path=audio_prompt_path,
+            cfg_weight=cfg_weight,
         )
 
         for entry in entries:

@@ -29,7 +29,8 @@ def extract_nouns(text: str) -> List[str]:
 
         for token in tokens:
             if token.tag.startswith("N"):
-                noun = "".join([char for char in token.form if char.isalnum()])
+                # Extract alphanumeric characters and strip whitespace
+                noun = "".join([char for char in token.form if char.isalnum()]).strip()
                 # Only include nouns with length >= 2
                 if noun and len(noun) >= 2 and noun not in nouns:
                     nouns.append(noun)

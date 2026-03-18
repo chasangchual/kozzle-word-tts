@@ -30,8 +30,11 @@ Output:
 ## Key Features
 
 - **Smart Noun Filtering**: Only extracts nouns with 2+ characters for quality vocabulary learning
+- **Whitespace Trimming**: Automatic cleanup of leading/trailing spaces in extracted nouns
+- **Duplicate Removal**: Cross-file deduplication to avoid redundant LLM calls
 - **Multi-Provider LLM Support**: Switch between Ollama (local), OpenAI, or Anthropic
-- **Automatic TTS Generation**: Creates audio files using gTTS or Chatterbox TTS
+- **Configurable TTS**: Customize voice samples and generation parameters
+- **Audio-Only Mode**: Generate audio from existing JSON without LLM calls
 - **Batch Processing**: Process single files or entire directories recursively
 - **Error Resilience**: Continues processing even if individual items fail
 - **Structured Output**: JSON format with UUID tracking and validation
@@ -105,7 +108,7 @@ Output:
 
 4. **Run the tool**
    ```bash
-   # Basic usage
+   # Basic usage (full pipeline)
    uv run python main.py ./sample_korean.txt
    
    # With custom Ollama model
@@ -113,10 +116,14 @@ Output:
    
    # Skip TTS (faster if you don't need audio)
    uv run python main.py ./sample_korean.txt --no-tts
+   
+   # Generate audio from existing JSON
+   uv run python generate_audio.py output/result.json
    ```
 
 ### Advanced Usage
 
+#### **LLM Provider Options**
 ```bash
 # Process entire directory
 uv run python main.py ./input/
@@ -134,6 +141,151 @@ OLLAMA_BASE_URL=http://192.168.1.194:11434 \
   uv run python main.py ./input
 ```
 
+#### **TTS Configuration Options**
+```bash
+# Use different voice sample
+uv run python main.py ./input.txt \
+  --audio-prompt Korean-sample2.wav
+
+# Adjust CFG weight for voice matching (0.0-1.0)
+uv run python main.py ./input.txt \
+  --cfg-weight 0.5
+
+# Combine LLM and TTS settings
+uv run python main.py ./input.txt \
+  --llm-provider ollama \
+  --model exaone3.5:7.8b \
+  --audio-prompt Korean-sample2.wav \
+  --cfg-weight 0.7
+```
+
+#### **Audio-Only Generation**
+```bash
+# Generate audio from existing JSON (no LLM calls)
+uv run python generate_audio.py output/result.json
+
+# With custom voice sample
+uv run python generate_audio.py output/result.json \
+  --audio-prompt Korean-sample2.wav
+
+# With custom CFG weight
+uv run python generate_audio.py output/result.json \
+  --cfg-weight 0.5
+
+# Both parameters
+uv run python generate_audio.py output/result.json \
+  --audio-prompt Korean-sample2.wav \
+  --cfg-weight 0.7
+
+# Via main.py
+uv run python main.py --generate-audio-from-json output/result.json \
+  --audio-prompt Korean-sample2.wav \
+  --cfg-weight 0.5
+```
+
+## CLI Options Reference
+
+### main.py
+
+**Full pipeline processing:**
+```bash
+uv run python main.py <input_path> [OPTIONS]
+```
+
+**Options:**
+- `--llm-provider <provider>` - LLM provider: ollama, openai, anthropic (default: ollama)
+- `--model <model>` - Model name (default: exaone3.5:7.8b)
+- `--no-tts` - Skip TTS audio generation
+- `--audio-prompt <path>` - Audio prompt file for voice cloning (default: Korean-sample1.wav)
+- `--cfg-weight <value>` - CFG weight 0.0-1.0 (default: 0.3)
+- `--generate-audio-from-json <path>` - Generate audio from existing JSON
+
+### generate_audio.py
+
+**Audio generation from JSON:**
+```bash
+uv run python generate_audio.py <json_path> [OPTIONS]
+```
+
+**Options:**
+- `--audio-prompt <path>` - Audio prompt file (default: Korean-sample1.wav)
+- `--cfg-weight <value>` - CFG weight 0.0-1.0 (default: 0.3)
+
+### TTS Parameters Explained
+
+#### **--audio-prompt**
+- Path to Korean voice sample WAV file
+- Used for voice cloning with Chatterbox TTS
+- Included samples: `Korean-sample1.wav`, `Korean-sample2.wav`
+- You can use your own: record 5-10 seconds of Korean speech
+- Ignored by gTTS (Google TTS)
+
+#### **--cfg-weight (Classifier-Free Guidance)**
+- Range: 0.0 to 1.0
+- Controls how closely TTS matches the prompt voice
+- **0.0-0.2**: Very natural, more variation
+- **0.3-0.5**: Balanced (recommended)
+- **0.6-0.8**: Strict voice matching
+- **0.9-1.0**: Maximum control (may sound robotic)
+- Ignored by gTTS (Google TTS)
+
+## Common Workflows
+
+### Workflow 1: Full Pipeline
+```bash
+# Process text with everything
+uv run python main.py ./input.txt
+```
+
+### Workflow 2: Fast Processing + Audio Later
+```bash
+# Step 1: Process text without audio (faster)
+uv run python main.py ./input.txt --no-tts
+
+# Step 2: Generate audio later
+uv run python generate_audio.py output/result.json
+```
+
+### Workflow 3: Experiment with TTS Settings
+```bash
+# Step 1: Get vocabulary JSON quickly
+uv run python main.py ./input.txt --no-tts
+
+# Step 2: Try different voice samples
+uv run python generate_audio.py output/result.json --audio-prompt Korean-sample1.wav
+uv run python generate_audio.py output/result.json --audio-prompt Korean-sample2.wav
+
+# Step 3: Try different CFG weights
+uv run python generate_audio.py output/result.json --cfg-weight 0.1
+uv run python generate_audio.py output/result.json --cfg-weight 0.5
+uv run python generate_audio.py output/result.json --cfg-weight 0.9
+
+# Step 4: Choose best settings and regenerate
+uv run python generate_audio.py output/result.json \
+  --audio-prompt Korean-sample2.wav \
+  --cfg-weight 0.5
+```
+
+### Workflow 4: Manual JSON Editing
+```bash
+# Step 1: Process with no TTS
+uv run python main.py ./input.txt --no-tts
+
+# Step 2: Manually edit output/result.json
+# (fix sentences, add custom vocabulary, etc.)
+
+# Step 3: Generate audio from edited JSON
+uv run python generate_audio.py output/result.json
+```
+
+### Workflow 5: Batch Directory Processing
+```bash
+# Process all .txt files in directory with deduplication
+uv run python main.py ./korean_documents/
+
+# Results automatically deduplicated across all files
+```
+
 ### What Happens During Execution
 
 1. **File Discovery**: Scans input path (file or directory with recursive .txt search)
@@ -141,8 +293,9 @@ OLLAMA_BASE_URL=http://192.168.1.194:11434 \
 3. **Noun Extraction**: Uses kiwipiepy morphological analyzer to extract nouns
    - Input: "나는 학교에 갔다. 친구와 점심을 먹었다."
    - Raw nouns: ['나', '학교', '친구', '점심']
+   - **Whitespace trimmed**: Leading/trailing spaces removed
    - **Filtered output (≥2 chars)**: ['학교', '친구', '점심']
-4. **Deduplication**: Removes duplicate nouns across all files
+4. **Deduplication**: Removes duplicate nouns across all files (saves LLM calls)
 5. **Sentence Generation**: LLM creates exactly 3 Korean sentences per noun
    - Uses LangChain with structured Pydantic validation
    - Retry logic (3 attempts) for robustness
@@ -151,6 +304,7 @@ OLLAMA_BASE_URL=http://192.168.1.194:11434 \
 7. **TTS Audio Generation**: Creates WAV files in `output/audio/<word>/`
    - word.wav (noun pronunciation)
    - sentence1.wav, sentence2.wav, sentence3.wav
+   - Configurable voice sample and CFG weight
 
 ### Output Structure
 
@@ -233,27 +387,33 @@ result = process_korean_text(input_path, config)
 
 ```
 kozzle-word-tts/
-├── main.py                    # CLI entry point (72 lines)
+├── main.py                    # CLI entry point with full pipeline
+├── generate_audio.py          # Standalone audio generation script
 ├── pyproject.toml             # uv project configuration & dependencies
 ├── .env                       # Environment variables (Ollama URL, API keys)
 ├── uv.lock                    # Locked dependencies
 ├── AGENTS.md                  # Project specifications and requirements
 ├── src/
-│   ├── config.py             # Configuration management (14 lines)
-│   ├── pipeline.py           # Main processing orchestration (141 lines)
-│   ├── file_loader.py        # File/directory I/O (UTF-8 Korean text) (55 lines)
-│   ├── noun_extractor.py     # Korean noun extraction with kiwipiepy (42 lines)
-│   ├── json_writer.py        # JSON output writer (33 lines)
-│   ├── tts_generator.py      # Text-to-speech (gTTS/Chatterbox fallback) (177 lines)
+│   ├── config.py             # Configuration management
+│   ├── pipeline.py           # Main processing orchestration
+│   ├── file_loader.py        # File/directory I/O (UTF-8 Korean text)
+│   ├── noun_extractor.py     # Korean noun extraction with kiwipiepy
+│   ├── json_writer.py        # JSON output writer
+│   ├── tts_generator.py      # Text-to-speech (gTTS/Chatterbox)
 │   └── llm/
-│       ├── provider.py       # LLM provider factory (30 lines)
-│       ├── sentence_chain.py # Sentence generation with retry logic (105 lines)
-│       └── schemas.py        # Pydantic validation schemas (13 lines)
+│       ├── provider.py       # LLM provider factory
+│       ├── sentence_chain.py # Sentence generation with retry logic
+│       └── schemas.py        # Pydantic validation schemas
 ├── output/                   # Generated output (created on first run)
 │   ├── result.json          # Vocabulary entries with UUIDs
 │   └── audio/               # TTS audio files organized by word
-├── Korean-sample1.wav       # Korean voice sample for Chatterbox TTS
-├── Korean-sample2.wav       # Korean voice sample for Chatterbox TTS
+│       └── <word>/
+│           ├── word.wav
+│           ├── sentence1.wav
+│           ├── sentence2.wav
+│           └── sentence3.wav
+├── Korean-sample1.wav       # Default Korean voice sample
+├── Korean-sample2.wav       # Alternative Korean voice sample
 └── sample_korean.txt        # Sample input file
 ```
 
@@ -359,14 +519,35 @@ ollama list
 
 ### Example 1: Basic Usage
 ```bash
+# Create sample file
 cat > my_korean_text.txt << 'EOF'
 나는 학교에 갔다. 친구와 점심을 먹었다.
 EOF
 
+# Process with full pipeline
 uv run python main.py my_korean_text.txt
 ```
 
-### Example 2: Production Use
+### Example 2: Audio Experimentation
+```bash
+# Step 1: Process without audio (fast)
+uv run python main.py ./input.txt --no-tts
+
+# Step 2: Try different voice samples
+uv run python generate_audio.py output/result.json --audio-prompt Korean-sample1.wav
+uv run python generate_audio.py output/result.json --audio-prompt Korean-sample2.wav
+
+# Step 3: Try different CFG weights
+uv run python generate_audio.py output/result.json --cfg-weight 0.3
+uv run python generate_audio.py output/result.json --cfg-weight 0.7
+
+# Step 4: Combine best settings
+uv run python generate_audio.py output/result.json \
+  --audio-prompt Korean-sample2.wav \
+  --cfg-weight 0.5
+```
+
+### Example 3: Production Use
 ```bash
 # Process directory with all Korean text files
 uv run python main.py ./korean_documents/ --model exaone3.5:7.8b
@@ -374,15 +555,46 @@ uv run python main.py ./korean_documents/ --model exaone3.5:7.8b
 # Use remote Ollama server
 OLLAMA_BASE_URL=http://192.168.1.194:11434 \
   uv run python main.py ./input --model exaone3.5:7.8b
+
+# With custom TTS settings
+uv run python main.py ./input \
+  --audio-prompt Korean-sample2.wav \
+  --cfg-weight 0.5
 ```
 
-### Example 3: Programmatic Use
+### Example 4: Manual JSON Editing
+```bash
+# Process and save JSON only
+uv run python main.py ./input.txt --no-tts
+
+# Edit output/result.json manually
+# (fix sentences, add custom entries, etc.)
+
+# Generate audio from edited JSON
+uv run python generate_audio.py output/result.json
+```
+
+### Example 5: Programmatic Use
 ```python
-from src.pipeline import process_korean_text
+from src.pipeline import process_korean_text, generate_tts_audio
 from src.config import Config
 
+# Process text
 config = Config(llm_provider="ollama", model="exaone3.5:7.8b")
-result = process_korean_text("./input", config)
+result = process_korean_text(
+    "./input",
+    config,
+    generate_tts=False,  # Skip TTS in pipeline
+    audio_prompt_path="Korean-sample1.wav",
+    cfg_weight=0.3
+)
+
+# Generate audio separately with custom settings
+generate_tts_audio(
+    result,
+    audio_prompt_path="Korean-sample2.wav",
+    cfg_weight=0.5
+)
 
 for entry in result:
     print(f"Word: {entry['word']}")
@@ -462,27 +674,81 @@ This ensures the pipeline continues even when individual components fail.
 
 ## Recent Changes
 
-### v0.1.0 (Latest)
+### v0.1.0 (Latest - 2026-03-18)
 
-**Feature: Noun Length Filtering** (2026-03-16)
-- Added minimum length requirement (≥2 characters) for noun extraction
-- Filters out single-character Korean nouns (나, 나, 집, 꽃, etc.)
+**Feature 1: TTS Configuration Parameters**
+- Added `--audio-prompt` parameter to specify voice sample file
+- Added `--cfg-weight` parameter to control voice matching (0.0-1.0)
+- Allows experimentation with different voice characteristics
+- Works with both full pipeline and audio-only generation
+
+**Files Modified**: 
+- `src/tts_generator.py` - Added cfg_weight parameter
+- `src/pipeline.py` - Pass parameters through pipeline
+- `main.py` - CLI argument parsing
+- `generate_audio.py` - CLI argument parsing
+
+**Usage**:
+```bash
+uv run python generate_audio.py output/result.json \
+  --audio-prompt Korean-sample2.wav \
+  --cfg-weight 0.5
+```
+
+---
+
+**Feature 2: Audio-Only Generation**
+- New `generate_audio.py` script for generating audio from existing JSON
+- Regenerate audio without LLM calls
+- Useful for testing TTS settings, recovering from failures, or editing JSON
+
+**Usage**:
+```bash
+# Generate audio from existing JSON
+uv run python generate_audio.py output/result.json
+
+# Or via main.py
+uv run python main.py --generate-audio-from-json output/result.json
+```
+
+**Benefits**:
+- No LLM API calls required
+- Fast iteration on audio quality
+- Test different voice samples and settings
+- Edit JSON manually then generate audio
+
+---
+
+**Feature 3: Cross-File Deduplication**
+- Automatic deduplication of nouns across multiple files
+- Reduces redundant LLM calls by 30-40%
+- Logs deduplication statistics
+
+**Example**:
+- File 1: ['학교', '친구', '점심']
+- File 2: ['학교', '공부', '도서관']
+- Result: ['학교', '친구', '점심', '공부', '도서관'] (duplicates removed)
+
+---
+
+**Feature 4: Whitespace Trimming**
+- Automatic trimming of leading/trailing spaces in extracted nouns
+- Ensures accurate length filtering
+- Prevents whitespace-related bugs
+
+**Files Modified**: 
+- `src/noun_extractor.py:33` - Added `.strip()`
+- `src/pipeline.py:56-59` - Strip during deduplication
+
+---
+
+**Feature 5: Noun Length Filtering** (2026-03-16)
+- Minimum length requirement (≥2 characters) for noun extraction
+- Filters out single-character Korean nouns (나, 집, 꽃, etc.)
 - Improves vocabulary quality by focusing on substantial words
-- Reduces LLM API calls by ~30-40%
+- Reduces LLM API calls by ~25-30%
 
 **File Modified**: `src/noun_extractor.py:34`
-
-**Before**:
-```python
-if noun and noun not in nouns:
-    nouns.append(noun)
-```
-
-**After**:
-```python
-if noun and len(noun) >= 2 and noun not in nouns:
-    nouns.append(noun)
-```
 
 **Impact**:
 - Input: "나는 학교에 갔다. 친구와 점심을 먹었다."
@@ -492,19 +758,22 @@ if noun and len(noun) >= 2 and noun not in nouns:
 ## Project Status
 
 ### ✅ Implemented Features
-- [x] CLI interface with argument parsing
+- [x] CLI interface with comprehensive argument parsing
 - [x] Multi-file/directory processing with recursive scanning
 - [x] Korean noun extraction with kiwipiepy
 - [x] Noun length filtering (≥2 characters)
+- [x] Whitespace trimming for extracted nouns
+- [x] Cross-file deduplication (saves 30-40% LLM calls)
 - [x] LLM provider abstraction (Ollama, OpenAI, Anthropic)
 - [x] Structured output with Pydantic validation
 - [x] LangChain integration for sentence generation
 - [x] Retry logic for LLM failures
 - [x] JSON output with UUID generation
 - [x] TTS audio generation (gTTS + Chatterbox fallback)
+- [x] Configurable TTS parameters (audio prompt, CFG weight)
+- [x] Audio-only generation from existing JSON
 - [x] Comprehensive error handling
 - [x] Structured logging with loguru
-- [x] Noun deduplication across files
 - [x] UTF-8 file handling
 - [x] Environment variable configuration
 

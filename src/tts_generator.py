@@ -11,6 +11,7 @@ class TTSGenerator:
         self,
         output_dir: str = "output/audio",
         audio_prompt_path: str = "Korean-sample1.wav",
+        cfg_weight: float = 0.3,
     ):
         """
         Initialize TTS generator.
@@ -18,9 +19,11 @@ class TTSGenerator:
         Args:
             output_dir: Base directory for audio output
             audio_prompt_path: Path to audio prompt file (for Chatterbox)
+            cfg_weight: Classifier-free guidance weight for Chatterbox (0.0-1.0)
         """
         self.output_dir = Path(output_dir)
         self.audio_prompt_path = audio_prompt_path
+        self.cfg_weight = cfg_weight
         self.use_chatterbox = False
         self.model = None
 
@@ -66,7 +69,7 @@ class TTSGenerator:
                     text=text,
                     language_id="ko",
                     audio_prompt_path=self.audio_prompt_path,
-                    cfg_weight=0.3,
+                    cfg_weight=self.cfg_weight,
                 )
                 self.model.save(audio, output_path)
             else:
