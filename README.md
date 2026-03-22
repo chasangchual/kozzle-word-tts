@@ -81,8 +81,10 @@ Output:
    ```
 
 ### Optional for TTS
-- **PyTorch** (~2GB) - Required only for Chatterbox TTS
-- **Audio samples** - Korean voice samples for Chatterbox (already included)
+- **ChatterBox TTS**: Requires PyTorch (~2GB)
+- **Qwen3-TTS** (Apple Silicon only): Uses MLX framework, requires model download (~3GB)
+- **Both engines**: Install both to compare TTS output quality side-by-side
+- **Audio samples** - Korean voice samples for voice cloning (already included)
 
 ## How to Start
 
@@ -143,6 +145,11 @@ OLLAMA_BASE_URL=http://192.168.1.194:11434 \
 
 #### **TTS Configuration Options**
 ```bash
+# Select TTS engine: chatterbox (default), qwen3, or both
+uv run python main.py ./input.txt --tts-engine chatterbox
+uv run python main.py ./input.txt --tts-engine qwen3
+uv run python main.py ./input.txt --tts-engine both  # Compare outputs
+
 # Use different voice sample
 uv run python main.py ./input.txt \
   --audio-prompt Korean-sample2.wav
@@ -155,6 +162,7 @@ uv run python main.py ./input.txt \
 uv run python main.py ./input.txt \
   --llm-provider ollama \
   --model exaone3.5:7.8b \
+  --tts-engine both \
   --audio-prompt Korean-sample2.wav \
   --cfg-weight 0.7
 ```
@@ -164,6 +172,12 @@ uv run python main.py ./input.txt \
 # Generate audio from existing JSON (no LLM calls)
 uv run python generate_audio.py output/result.json
 
+# Generate with both TTS engines for comparison
+uv run python generate_audio.py output/result.json --tts-engine both
+
+# Generate with specific engine
+uv run python generate_audio.py output/result.json --tts-engine qwen3
+
 # With custom voice sample
 uv run python generate_audio.py output/result.json \
   --audio-prompt Korean-sample2.wav
@@ -172,13 +186,15 @@ uv run python generate_audio.py output/result.json \
 uv run python generate_audio.py output/result.json \
   --cfg-weight 0.5
 
-# Both parameters
+# Both parameters with engine selection
 uv run python generate_audio.py output/result.json \
+  --tts-engine both \
   --audio-prompt Korean-sample2.wav \
   --cfg-weight 0.7
 
 # Via main.py
 uv run python main.py --generate-audio-from-json output/result.json \
+  --tts-engine both \
   --audio-prompt Korean-sample2.wav \
   --cfg-weight 0.5
 ```
@@ -196,9 +212,11 @@ uv run python main.py <input_path> [OPTIONS]
 - `--llm-provider <provider>` - LLM provider: ollama, openai, anthropic (default: ollama)
 - `--model <model>` - Model name (default: exaone3.5:7.8b)
 - `--no-tts` - Skip TTS audio generation
+- `--tts-engine <engine>` - TTS engine: chatterbox, qwen3, or both (default: chatterbox)
 - `--audio-prompt <path>` - Audio prompt file for voice cloning (default: Korean-sample1.wav)
 - `--cfg-weight <value>` - CFG weight 0.0-1.0 (default: 0.3)
 - `--generate-audio-from-json <path>` - Generate audio from existing JSON
+- `--qwen3-model-path <path>` - Path to Qwen3-TTS model (default: models/Qwen3-TTS-12Hz-1.7B-Base-8bit)
 
 ### generate_audio.py
 
@@ -208,17 +226,30 @@ uv run python generate_audio.py <json_path> [OPTIONS]
 ```
 
 **Options:**
+- `--tts-engine <engine>` - TTS engine: chatterbox, qwen3, or both (default: chatterbox)
 - `--audio-prompt <path>` - Audio prompt file (default: Korean-sample1.wav)
 - `--cfg-weight <value>` - CFG weight 0.0-1.0 (default: 0.3)
+- `--qwen3-model-path <path>` - Path to Qwen3-TTS model (default: models/Qwen3-TTS-12Hz-1.7B-Base-8bit)
 
 ### TTS Parameters Explained
 
+#### **--tts-engine**
+- Select which TTS engine(s) to use for audio generation
+- **chatterbox** (default): Use ChatterBox TTS only
+- **qwen3**: Use Qwen3-TTS only (Apple Silicon)
+- **both**: Generate audio with both engines for comparison
+- When `both` is selected, output is organized in separate folders:
+  ```
+  output/audio/
+  ├── chatterbox/<word>/   # ChatterBox TTS output
+  └── qwen3/<word>/        # Qwen3-TTS output
+  ```
+
 #### **--audio-prompt**
 - Path to Korean voice sample WAV file
-- Used for voice cloning with Chatterbox TTS
+- Used for voice cloning with both ChatterBox and Qwen3-TTS
 - Included samples: `Korean-sample1.wav`, `Korean-sample2.wav`
 - You can use your own: record 5-10 seconds of Korean speech
-- Ignored by gTTS (Google TTS)
 
 #### **--cfg-weight (Classifier-Free Guidance)**
 - Range: 0.0 to 1.0
@@ -227,7 +258,7 @@ uv run python generate_audio.py <json_path> [OPTIONS]
 - **0.3-0.5**: Balanced (recommended)
 - **0.6-0.8**: Strict voice matching
 - **0.9-1.0**: Maximum control (may sound robotic)
-- Ignored by gTTS (Google TTS)
+- Used by ChatterBox TTS (ignored by Qwen3-TTS)
 
 ## Common Workflows
 
@@ -246,7 +277,23 @@ uv run python main.py ./input.txt --no-tts
 uv run python generate_audio.py output/result.json
 ```
 
-### Workflow 3: Experiment with TTS Settings
+### Workflow 3: Compare TTS Engines
+```bash
+# Step 1: Get vocabulary JSON quickly
+uv run python main.py ./input.txt --no-tts
+
+# Step 2: Generate audio with both engines for comparison
+uv run python generate_audio.py output/result.json --tts-engine both
+
+# Step 3: Compare output in:
+#   - output/audio/chatterbox/<word>/
+#   - output/audio/qwen3/<word>/
+
+# Step 4: Choose your preferred engine for future use
+uv run python generate_audio.py output/result.json --tts-engine qwen3
+```
+
+### Workflow 4: Experiment with TTS Settings
 ```bash
 # Step 1: Get vocabulary JSON quickly
 uv run python main.py ./input.txt --no-tts
@@ -266,7 +313,7 @@ uv run python generate_audio.py output/result.json \
   --cfg-weight 0.5
 ```
 
-### Workflow 4: Manual JSON Editing
+### Workflow 5: Manual JSON Editing
 ```bash
 # Step 1: Process with no TTS
 uv run python main.py ./input.txt --no-tts
@@ -278,7 +325,7 @@ uv run python main.py ./input.txt --no-tts
 uv run python generate_audio.py output/result.json
 ```
 
-### Workflow 5: Batch Directory Processing
+### Workflow 6: Batch Directory Processing
 ```bash
 # Process all .txt files in directory with deduplication
 uv run python main.py ./korean_documents/
@@ -308,6 +355,7 @@ uv run python main.py ./korean_documents/
 
 ### Output Structure
 
+**Single TTS engine (default):**
 ```
 output/
 ├── result.json              # Structured vocabulary data
@@ -319,6 +367,27 @@ output/
     │   └── sentence3.wav   # Sentence 3 audio
     ├── 친구/
     └── 점심/
+```
+
+**Both TTS engines (`--tts-engine both`):**
+```
+output/
+├── result.json              # Structured vocabulary data
+└── audio/                   # Generated audio files
+    ├── chatterbox/          # ChatterBox TTS output
+    │   ├── 학교/
+    │   │   ├── word.wav
+    │   │   ├── sentence1.wav
+    │   │   ├── sentence2.wav
+    │   │   └── sentence3.wav
+    │   └── 친구/
+    └── qwen3/               # Qwen3-TTS output
+        ├── 학교/
+        │   ├── word.wav
+        │   ├── sentence1.wav
+        │   ├── sentence2.wav
+        │   └── sentence3.wav
+        └── 친구/
 ```
 
 ## How to Build
@@ -438,7 +507,7 @@ generate_tts_audio() → Output
 | **kiwipiepy** | ≥0.22 | Korean morphological analyzer | ✅ Active |
 | **pydantic** | ≥2.0 | Data validation & schemas | ✅ Active |
 | **loguru** | ≥0.7 | Structured logging | ✅ Active |
-| **gtts** | ≥2.4 | Google Text-to-Speech | ✅ Active |
+| **mlx-audio** | git | Qwen3-TTS (Apple Silicon) | ✅ Optional |
 | **python-dotenv** | ≥1.0 | Environment variable loading | ✅ Active |
 | **diskcache** | ≥5.6 | LLM result caching | ⚠️ Imported but not yet implemented |
 
@@ -461,6 +530,237 @@ DEFAULT_MODEL=exaone3.5:7.8b
 DEFAULT_PROVIDER=ollama
 ```
 
+## TTS Engine Setup
+
+The application supports two TTS engines that can be used individually or together for comparison:
+1. **ChatterBox TTS** - Cross-platform, requires PyTorch
+2. **Qwen3-TTS** - Apple Silicon only, uses MLX framework
+
+**Engine Selection:**
+```bash
+--tts-engine chatterbox  # Use ChatterBox only (default)
+--tts-engine qwen3       # Use Qwen3-TTS only
+--tts-engine both        # Generate with both engines for comparison
+```
+
+### Option 1: ChatterBox TTS (Cross-platform)
+
+ChatterBox TTS provides high-quality Korean voice cloning using PyTorch.
+
+```bash
+# Install PyTorch and ChatterBox
+uv pip install torch
+pip install chatter-box-tts
+```
+
+### Option 2: Qwen3-TTS (Apple Silicon Only - Recommended for Mac)
+
+Qwen3-TTS uses MLX framework optimized for Apple Silicon (M1/M2/M3/M4). It runs 100% locally with excellent performance on Mac.
+
+#### Quick Start (5 minutes)
+
+```bash
+# Step 1: Install system dependency
+brew install ffmpeg
+
+# Step 2: Install MLX dependencies
+uv pip install -e ".[qwen3-tts]"
+
+# Step 3: Create models directory
+mkdir -p models
+
+# Step 4: Download the model (~3GB)
+pip install huggingface_hub
+huggingface-cli download mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit \
+  --local-dir models/Qwen3-TTS-12Hz-1.7B-Base-8bit
+
+# Step 5: Run!
+uv run python main.py ./input.txt
+```
+
+#### Prerequisites
+
+- macOS with Apple Silicon (M1/M2/M3/M4)
+- Python 3.10+
+- ffmpeg (`brew install ffmpeg`)
+- ~6GB RAM for 1.7B model, ~3GB for 0.6B model
+
+#### Manual Installation
+
+If you prefer to install dependencies manually:
+
+```bash
+# Install MLX framework
+pip install mlx>=0.30
+
+# Install mlx-audio from GitHub
+pip install git+https://github.com/Blaizzy/mlx-audio.git
+```
+
+#### Model Download Options
+
+**Option A: Using HuggingFace CLI (Recommended)**
+```bash
+# Install huggingface-cli if needed
+pip install huggingface_hub
+
+# Download the 1.7B model (best quality)
+huggingface-cli download mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit \
+  --local-dir models/Qwen3-TTS-12Hz-1.7B-Base-8bit
+
+# Or download the 0.6B model (faster, less RAM)
+huggingface-cli download mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit \
+  --local-dir models/Qwen3-TTS-12Hz-0.6B-Base-8bit
+```
+
+**Option B: Manual Download from HuggingFace**
+
+1. Visit [Qwen3-TTS-12Hz-1.7B-Base-8bit](https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit)
+2. Click "Download" to get the model files
+3. Place the downloaded folder in your project:
+
+```
+models/
+└── Qwen3-TTS-12Hz-1.7B-Base-8bit/
+    ├── config.json
+    ├── model.safetensors
+    ├── tokenizer.json
+    └── ...
+```
+
+#### Available Qwen3-TTS Models
+
+| Model | Download Size | Quality | RAM Usage | Speed |
+|-------|---------------|---------|-----------|-------|
+| [Qwen3-TTS-12Hz-1.7B-Base-8bit](https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit) | ~3GB | Best | ~6GB | Normal |
+| [Qwen3-TTS-12Hz-0.6B-Base-8bit](https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit) | ~1GB | Good | ~3GB | Faster |
+
+#### Usage with Custom Model Path
+
+```bash
+# Use default path (models/Qwen3-TTS-12Hz-1.7B-Base-8bit)
+uv run python main.py ./input.txt
+
+# Use custom model path
+uv run python main.py ./input.txt \
+  --qwen3-model-path /path/to/your/model
+
+# Use the smaller 0.6B model
+uv run python main.py ./input.txt \
+  --qwen3-model-path models/Qwen3-TTS-12Hz-0.6B-Base-8bit
+```
+
+#### Voice Cloning with Qwen3-TTS
+
+Qwen3-TTS supports voice cloning using a reference audio file:
+
+```bash
+# Use your own Korean voice sample for cloning
+uv run python main.py ./input.txt \
+  --audio-prompt my_korean_voice.wav
+```
+
+For best results:
+- Use a clean 5-10 second Korean audio clip
+- WAV format recommended (auto-converts other formats via ffmpeg)
+- Clear speech without background noise
+
+### TTS Engine Behavior
+
+**When `--tts-engine chatterbox` (default):**
+- Uses ChatterBox TTS only
+- Fails with error if ChatterBox is not available
+
+**When `--tts-engine qwen3`:**
+- Uses Qwen3-TTS only
+- Fails with error if Qwen3-TTS is not available
+
+**When `--tts-engine both`:**
+- Tries to initialize both engines
+- Generates audio with all available engines
+- If only one engine is available, continues with that engine (logs a warning)
+- Fails only if neither engine is available
+- Output is organized in separate folders (`chatterbox/` and `qwen3/`)
+
+**Note**: gTTS (Google TTS) has been removed. You must install either ChatterBox or Qwen3-TTS.
+
+---
+
+## Logging
+
+### Log File Locations
+
+All logs are stored in the `logs/` directory:
+
+```
+logs/
+├── app.log      # All log levels (DEBUG, INFO, WARNING, ERROR)
+└── errors.log   # Errors only (for quick troubleshooting)
+```
+
+### Log Rotation
+
+- **Rotation Size**: 10MB per file
+- **Retention**: Last 5 rotated files are kept
+- **Encoding**: UTF-8 (supports Korean text)
+
+Example rotated files:
+```
+logs/
+├── app.log              # Current log file
+├── app.log.1            # Previous rotation
+├── app.log.2            # Older rotation
+├── errors.log           # Current error log
+└── errors.log.1         # Previous error rotation
+```
+
+### Log Format
+
+```
+2026-03-20 14:30:45.123 | INFO     | src.tts_generator:generate_audio:125 | Generating audio for: 학교에서 친구들을 만났어요...
+```
+
+Format breakdown:
+- `2026-03-20 14:30:45.123` - Timestamp with milliseconds
+- `INFO` - Log level (DEBUG, INFO, WARNING, ERROR)
+- `src.tts_generator:generate_audio:125` - Module:Function:Line number
+- Message text
+
+### Full Stack Traces
+
+All exceptions are logged with:
+- Complete stack trace
+- Variable values at each frame (for debugging)
+- Exception type and message
+
+Example error log:
+```
+2026-03-20 14:30:45.123 | ERROR    | src.tts_generator:_generate_with_qwen3:185 | Qwen3-TTS generation failed for '학교에서...'
+Traceback (most recent call last):
+  File "src/tts_generator.py", line 180, in _generate_with_qwen3
+    generate_audio(model=self.qwen3_model, text=text, ...)
+    │              │                       └ '학교에서 친구들을 만났어요.'
+    │              └ <mlx_audio.tts.model.Qwen3TTS object>
+    └ <function generate_audio at 0x...>
+...
+```
+
+### Viewing Logs
+
+```bash
+# View recent logs
+tail -f logs/app.log
+
+# View only errors
+cat logs/errors.log
+
+# Search for specific word
+grep "학교" logs/app.log
+
+# View with less (scrollable)
+less logs/app.log
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -480,12 +780,25 @@ ollama serve
 OLLAMA_BASE_URL=http://192.168.1.194:11434 uv run python main.py ./input
 ```
 
-**"No audio generated"**
+**"No audio generated"** or **"No TTS engine available"**
 ```bash
-# TTS requires gTTS (auto-installed) or Chatterbox
-# For Chatterbox (higher quality):
+# Option 1: Install ChatterBox TTS (cross-platform)
 uv pip install torch
 pip install chatter-box-tts
+
+# Option 2: Install Qwen3-TTS (Apple Silicon only)
+uv pip install -e ".[qwen3-tts]"
+# Then download model to models/Qwen3-TTS-12Hz-1.7B-Base-8bit/
+```
+
+**"Qwen3-TTS model not found"**
+```bash
+# Download the model
+huggingface-cli download mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit \
+  --local-dir models/Qwen3-TTS-12Hz-1.7B-Base-8bit
+
+# Or specify custom path
+uv run python main.py ./input.txt --qwen3-model-path /path/to/model
 ```
 
 **"Korean text not displaying correctly"**
@@ -646,11 +959,16 @@ class SentenceOutput(BaseModel):
 
 ### TTS Implementation (src/tts_generator.py)
 
-**Dual Engine Support**:
-1. **Primary**: gTTS (Google Text-to-Speech) - Always available
-2. **Optional**: Chatterbox TTS - Higher quality, requires PyTorch
+**Dual Engine Support with Selection**:
+1. **ChatterBox TTS** - High quality voice cloning, requires PyTorch
+2. **Qwen3-TTS** (Apple Silicon) - Local MLX-based TTS with voice cloning
 
-**Audio Organization**:
+**TTS Engine Selection** (`--tts-engine`):
+- `chatterbox` (default): Uses ChatterBox TTS only, fails if unavailable
+- `qwen3`: Uses Qwen3-TTS only, fails if unavailable
+- `both`: Uses both engines, generates audio in separate folders for comparison
+
+**Audio Organization (single engine)**:
 ```
 output/audio/
 └── <word>/
@@ -658,6 +976,23 @@ output/audio/
     ├── sentence1.wav     # Example sentence 1
     ├── sentence2.wav     # Example sentence 2
     └── sentence3.wav     # Example sentence 3
+```
+
+**Audio Organization (`--tts-engine both`)**:
+```
+output/audio/
+├── chatterbox/
+│   └── <word>/
+│       ├── word.wav
+│       ├── sentence1.wav
+│       ├── sentence2.wav
+│       └── sentence3.wav
+└── qwen3/
+    └── <word>/
+        ├── word.wav
+        ├── sentence1.wav
+        ├── sentence2.wav
+        └── sentence3.wav
 ```
 
 ### Error Handling Strategy
@@ -815,5 +1150,5 @@ MIT License
 
 - **kiwipiepy** - Korean NLP library
 - **LangChain** - LLM abstraction layer
-- **gTTS/Chatterbox** - Text-to-speech engines
+- **ChatterBox/Qwen3-TTS** - Text-to-speech engines
 - **Exaone** - Korean language model by LG AI Research

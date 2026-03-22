@@ -12,7 +12,7 @@ The application must:
 3.  Extract nouns
 4.  Generate 3 Korean example sentences for each noun using an LLM
 5.  Save results to JSON
-6.  Generate TTS audio using Chatterbox TTS
+6.  Generate TTS audio using ChatterBox TTS and/or Qwen3-TTS
 
 Dependency management must use uv.
 
@@ -33,10 +33,14 @@ can switch between:
   - uv
 - Default LLM
   - Ollama model exaone3.5:7.8b
-- TTS engine
-  - chatter_box_tts
-  - https://github.com/resemble-ai/chatterbox
-  - follow installation instruncctions in README.md
+- TTS engines (selectable via --tts-engine parameter)
+  - ChatterBox TTS (default)
+    - https://github.com/resemble-ai/chatterbox
+    - Cross-platform, requires PyTorch
+  - Qwen3-TTS
+    - MLX-based, Apple Silicon only
+    - Uses mlx-audio library
+  - Both engines can be used simultaneously for comparison
 
 ------------------------------------------------------------------------
 
@@ -196,17 +200,31 @@ If multiple files are processed results must be consolidated.
 
 After JSON generation complete generate audio.
 
-Use
+## TTS Engine Selection
 
-Chatterbox TTS
+The application supports two TTS engines that can be selected via `--tts-engine`:
 
-Repository
+- `chatterbox` (default): Use ChatterBox TTS only
+- `qwen3`: Use Qwen3-TTS only (Apple Silicon)
+- `both`: Generate audio with both engines for comparison
 
-https://github.com/resemble-ai/chatterbox
+## ChatterBox TTS
 
-Parameters
+Repository: https://github.com/resemble-ai/chatterbox
 
-language_id="ko" audio_prompt_path="Korean-sample1.wav" cfg_weight=0.3
+Parameters:
+- language_id="ko"
+- audio_prompt_path="Korean-sample1.wav"
+- cfg_weight=0.3
+
+## Qwen3-TTS
+
+Library: mlx-audio (https://github.com/Blaizzy/mlx-audio)
+Model: Qwen3-TTS-12Hz-1.7B-Base-8bit
+
+Parameters:
+- ref_audio=audio_prompt_path (for voice cloning)
+- ref_text="" (empty for voice cloning mode)
 
 Each sentence must produce one audio file.
 
@@ -214,7 +232,32 @@ Each sentence must produce one audio file.
 
 # Audio Output Layout
 
-output/audio/ `<word>`{=html}/ sentence1.wav sentence2.wav sentence3.wav
+Single engine mode (`--tts-engine chatterbox` or `--tts-engine qwen3`):
+```
+output/audio/
+└── <word>/
+    ├── word.wav
+    ├── sentence1.wav
+    ├── sentence2.wav
+    └── sentence3.wav
+```
+
+Both engines mode (`--tts-engine both`):
+```
+output/audio/
+├── chatterbox/
+│   └── <word>/
+│       ├── word.wav
+│       ├── sentence1.wav
+│       ├── sentence2.wav
+│       └── sentence3.wav
+└── qwen3/
+    └── <word>/
+        ├── word.wav
+        ├── sentence1.wav
+        ├── sentence2.wav
+        └── sentence3.wav
+```
 
 ------------------------------------------------------------------------
 

@@ -1,10 +1,49 @@
 import sys
 import os
 import json
+from pathlib import Path
+from loguru import logger
 from src.pipeline import process_korean_text, generate_tts_audio
 from src.config import Config
 
+
+def configure_logging():
+    """Configure loguru for file-based logging with rotation."""
+    # Create logs directory
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+
+    # Configure file logging with 10MB rotation
+    logger.add(
+        log_dir / "app.log",
+        rotation="10 MB",  # Rotate when file reaches 10MB
+        retention=5,  # Keep last 5 rotated files
+        level="DEBUG",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | {message}",
+        backtrace=True,  # Include full traceback
+        diagnose=True,  # Include variable values in tracebacks
+        encoding="utf-8",
+    )
+
+    # Configure error-only log for quick error review
+    logger.add(
+        log_dir / "errors.log",
+        rotation="10 MB",
+        retention=5,
+        level="ERROR",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | {message}",
+        backtrace=True,
+        diagnose=True,
+        encoding="utf-8",
+    )
+
+    logger.info("Logging configured: logs/app.log (10MB rotation)")
+
+
 if __name__ == "__main__":
+    # Configure logging first
+    configure_logging()
+
     # Parse command line arguments
     if len(sys.argv) < 2:
         print("Usage: python main.py <input_path> [OPTIONS]")
@@ -13,7 +52,10 @@ if __name__ == "__main__":
         print(
             "  python main.py ./sample_korean.txt --llm-provider ollama --model exaone3.5:7.8b"
         )
-        print("  python main.py --generate-audio-from-json output/result.json")
+        print("  python main.py ./sample_korean.txt --tts-engine both")
+        print(
+            "  python main.py --generate-audio-from-json output/result.json --tts-engine qwen3"
+        )
         print("\nOptions:")
         print(
             "  --llm-provider <provider>          LLM provider (ollama, openai, anthropic) [default: ollama]"
@@ -23,6 +65,9 @@ if __name__ == "__main__":
         )
         print("  --no-tts                           Skip TTS audio generation")
         print(
+            "  --tts-engine <engine>              TTS engine: chatterbox, qwen3, or both [default: chatterbox]"
+        )
+        print(
             "  --audio-prompt <path>              Path to audio prompt file [default: Korean-sample1.wav]"
         )
         print(
@@ -30,6 +75,9 @@ if __name__ == "__main__":
         )
         print(
             "  --generate-audio-from-json <path>  Generate audio from existing JSON file"
+        )
+        print(
+            "  --qwen3-model-path <path>          Path to Qwen3-TTS model [default: models/Qwen3-TTS-12Hz-1.7B-Base-8bit]"
         )
         sys.exit(1)
 
@@ -42,6 +90,8 @@ if __name__ == "__main__":
         json_path = sys.argv[2]
         audio_prompt_path = "Korean-sample1.wav"
         cfg_weight = 0.3
+        qwen3_model_path = "models/Qwen3-TTS-12Hz-1.7B-Base-8bit"
+        tts_engine = "chatterbox"
 
         # Parse optional arguments after JSON path
         args = sys.argv[3:]
@@ -59,6 +109,16 @@ if __name__ == "__main__":
                     print(f"Error: Invalid cfg-weight value: {args[i + 1]}")
                     sys.exit(1)
                 i += 2
+            elif args[i] == "--qwen3-model-path" and i + 1 < len(args):
+                qwen3_model_path = args[i + 1]
+                i += 2
+            elif args[i] == "--tts-engine" and i + 1 < len(args):
+                tts_engine = args[i + 1]
+                if tts_engine not in ["chatterbox", "qwen3", "both"]:
+                    print(f"Error: Invalid tts-engine value: {tts_engine}")
+                    print("Valid options: chatterbox, qwen3, both")
+                    sys.exit(1)
+                i += 2
             else:
                 i += 1
 
@@ -72,18 +132,28 @@ if __name__ == "__main__":
                 entries = json.load(f)
 
             print(f"Found {len(entries)} vocabulary entries")
+            print(f"TTS engine: {tts_engine}")
             print(f"Audio prompt: {audio_prompt_path}")
             print(f"CFG weight: {cfg_weight}")
             print(f"{'=' * 60}")
 
             # Generate TTS audio for all entries
             generate_tts_audio(
-                entries, audio_prompt_path=audio_prompt_path, cfg_weight=cfg_weight
+                entries,
+                audio_prompt_path=audio_prompt_path,
+                cfg_weight=cfg_weight,
+                qwen3_model_path=qwen3_model_path,
+                tts_engine=tts_engine,
             )
 
             print(f"\n{'=' * 60}")
             print(f"Audio generation complete!")
-            print(f"Audio files saved to: output/audio/")
+            if tts_engine == "both":
+                print(
+                    f"Audio files saved to: output/audio/chatterbox/ and output/audio/qwen3/"
+                )
+            else:
+                print(f"Audio files saved to: output/audio/")
             print(f"{'=' * 60}\n")
 
             # Display summary
@@ -113,6 +183,8 @@ if __name__ == "__main__":
         generate_tts = True
         audio_prompt_path = "Korean-sample1.wav"
         cfg_weight = 0.3
+        qwen3_model_path = "models/Qwen3-TTS-12Hz-1.7B-Base-8bit"
+        tts_engine = "chatterbox"
 
         # Parse optional arguments
         args = sys.argv[2:]
@@ -127,6 +199,13 @@ if __name__ == "__main__":
             elif args[i] == "--no-tts":
                 generate_tts = False
                 i += 1
+            elif args[i] == "--tts-engine" and i + 1 < len(args):
+                tts_engine = args[i + 1]
+                if tts_engine not in ["chatterbox", "qwen3", "both"]:
+                    print(f"Error: Invalid tts-engine value: {tts_engine}")
+                    print("Valid options: chatterbox, qwen3, both")
+                    sys.exit(1)
+                i += 2
             elif args[i] == "--audio-prompt" and i + 1 < len(args):
                 audio_prompt_path = args[i + 1]
                 i += 2
@@ -138,6 +217,9 @@ if __name__ == "__main__":
                 except ValueError:
                     print(f"Error: Invalid cfg-weight value: {args[i + 1]}")
                     sys.exit(1)
+                i += 2
+            elif args[i] == "--qwen3-model-path" and i + 1 < len(args):
+                qwen3_model_path = args[i + 1]
                 i += 2
             else:
                 i += 1
@@ -155,6 +237,8 @@ if __name__ == "__main__":
                 generate_tts=generate_tts,
                 audio_prompt_path=audio_prompt_path,
                 cfg_weight=cfg_weight,
+                qwen3_model_path=qwen3_model_path,
+                tts_engine=tts_engine,
             )
             print(f"\n{'=' * 60}")
             print(f"Processing complete. Found {len(result)} entries.")
@@ -170,7 +254,12 @@ if __name__ == "__main__":
 
             print(f"JSON output saved to: output/result.json")
             if generate_tts:
-                print(f"Audio files saved to: output/audio/")
+                if tts_engine == "both":
+                    print(
+                        f"Audio files saved to: output/audio/chatterbox/ and output/audio/qwen3/"
+                    )
+                else:
+                    print(f"Audio files saved to: output/audio/")
 
         except Exception as e:
             print(f"Error: {e}")

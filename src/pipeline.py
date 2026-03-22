@@ -14,6 +14,8 @@ def process_korean_text(
     generate_tts: bool = True,
     audio_prompt_path: str = "Korean-sample1.wav",
     cfg_weight: float = 0.3,
+    qwen3_model_path: str = "models/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    tts_engine: str = "chatterbox",
 ) -> List[Dict[str, Any]]:
     """
     Main pipeline for processing Korean text and generating vocabulary content.
@@ -24,6 +26,8 @@ def process_korean_text(
         generate_tts: Whether to generate TTS audio (default: True)
         audio_prompt_path: Path to audio prompt file for voice cloning
         cfg_weight: Classifier-free guidance weight (0.0-1.0)
+        qwen3_model_path: Path to Qwen3-TTS model directory
+        tts_engine: TTS engine selection - "chatterbox", "qwen3", or "both"
 
     Returns:
         List of vocabulary entries with word and sentences
@@ -56,7 +60,7 @@ def process_korean_text(
             all_nouns_from_files.extend(nouns)
 
         except Exception as e:
-            logger.error(f"Error processing file {file_path}: {e}")
+            logger.exception(f"Error processing file {file_path}")
             # Continue processing other files instead of failing completely
 
     # Remove duplicates and strip whitespace from all nouns
@@ -86,7 +90,7 @@ def process_korean_text(
             all_entries.append(entry)
 
         except Exception as e:
-            logger.error(f"Failed to generate sentences for {noun}: {e}")
+            logger.exception(f"Failed to generate sentences for {noun}")
             # Create entry with placeholder if LLM fails
             entry = {
                 "id": str(uuid.uuid4()),
@@ -99,16 +103,20 @@ def process_korean_text(
     try:
         write_json_output(all_entries, "output/result.json")
     except Exception as e:
-        logger.error(f"Failed to write JSON output: {e}")
+        logger.exception("Failed to write JSON output")
 
     # Generate TTS audio if requested
     if generate_tts:
         try:
             generate_tts_audio(
-                all_entries, audio_prompt_path=audio_prompt_path, cfg_weight=cfg_weight
+                all_entries,
+                audio_prompt_path=audio_prompt_path,
+                cfg_weight=cfg_weight,
+                qwen3_model_path=qwen3_model_path,
+                tts_engine=tts_engine,
             )
         except Exception as e:
-            logger.error(f"TTS generation failed: {e}")
+            logger.exception("TTS generation failed")
             logger.warning("Continuing without TTS audio")
 
     logger.info(
@@ -121,6 +129,8 @@ def generate_tts_audio(
     entries: List[Dict[str, Any]],
     audio_prompt_path: str = "Korean-sample1.wav",
     cfg_weight: float = 0.3,
+    qwen3_model_path: str = "models/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+    tts_engine: str = "chatterbox",
 ) -> None:
     """
     Generate TTS audio for all entries.
@@ -129,18 +139,24 @@ def generate_tts_audio(
         entries: List of vocabulary entries
         audio_prompt_path: Path to audio prompt file for voice cloning
         cfg_weight: Classifier-free guidance weight (0.0-1.0)
+        qwen3_model_path: Path to Qwen3-TTS model directory
+        tts_engine: TTS engine selection - "chatterbox", "qwen3", or "both"
     """
     try:
         from src.tts_generator import TTSGenerator
 
         logger.info("Starting TTS audio generation...")
+        logger.info(f"TTS engine: {tts_engine}")
         logger.info(f"Audio prompt: {audio_prompt_path}")
         logger.info(f"CFG weight: {cfg_weight}")
+        logger.info(f"Qwen3-TTS model path: {qwen3_model_path}")
 
         tts = TTSGenerator(
             output_dir="output/audio",
             audio_prompt_path=audio_prompt_path,
             cfg_weight=cfg_weight,
+            qwen3_model_path=qwen3_model_path,
+            tts_engine=tts_engine,
         )
 
         for entry in entries:
@@ -150,27 +166,35 @@ def generate_tts_audio(
             try:
                 logger.info(f"Generating TTS for word: {word}")
 
-                # Generate word audio
-                word_audio = tts.generate_word_audio(word)
-                if word_audio:
-                    logger.info(f"Word audio saved: {word_audio}")
+                # Generate word audio (returns dict of engine -> path)
+                word_audio_results = tts.generate_word_audio(word)
+                for engine, path in word_audio_results.items():
+                    if path:
+                        logger.info(f"[{engine}] Word audio saved: {path}")
 
-                # Generate sentence audios
-                audio_paths = tts.generate_sentence_audios(word, sentences)
-                logger.info(
-                    f"Generated {len([p for p in audio_paths if p])} sentence audios for {word}"
-                )
+                # Generate sentence audios (returns dict of engine -> list of paths)
+                sentence_audio_results = tts.generate_sentence_audios(word, sentences)
+                for engine, paths in sentence_audio_results.items():
+                    valid_count = len([p for p in paths if p])
+                    logger.info(
+                        f"[{engine}] Generated {valid_count} sentence audios for {word}"
+                    )
 
             except Exception as e:
-                logger.error(f"Failed to generate TTS for {word}: {e}")
+                logger.exception(f"Failed to generate TTS for {word}")
                 continue
 
         logger.info("TTS audio generation completed")
 
     except ImportError as e:
-        logger.warning(f"Chatterbox TTS not installed: {e}")
+        logger.exception("TTS libraries not installed")
         logger.warning(
-            "Skipping TTS generation. Install with: pip install chatter_box_tts"
+            "Skipping TTS generation. Install ChatterBox TTS or Qwen3-TTS (mlx_audio)"
+        )
+    except RuntimeError as e:
+        logger.exception("No TTS engine available")
+        logger.warning(
+            "Skipping TTS generation. Install ChatterBox TTS or Qwen3-TTS (mlx_audio)"
         )
     except Exception as e:
-        logger.error(f"TTS generation error: {e}")
+        logger.exception("TTS generation error")

@@ -12,7 +12,9 @@ kiwipiepy>=0.22
 loguru>=0.7
 python-dotenv>=1.0
 diskcache>=5.6
-gtts>=2.4
+
+[chatterbox]
+torch>=2.0
 
 [dev]
 pytest>=7.0
@@ -21,5 +23,6 @@ black>=23.0
 isort>=5.12
 ruff>=0.1
 
-[tts]
-torch>=2.0
+[qwen3-tts]
+mlx>=0.30
+mlx-audio @ git+https://github.com/Blaizzy/mlx-audio.git

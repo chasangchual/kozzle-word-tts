@@ -1,0 +1,1 @@
+2026-03-20 16:22:19.407 | INFO     | main:configure_logging:40 | Logging configured: logs/app.log (10MB rotation)
